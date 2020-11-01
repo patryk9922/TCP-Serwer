@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading.Tasks;
 using System.Security.Cryptography;
 
 namespace SerwerTCPBibliotekaKlas
@@ -55,121 +52,145 @@ namespace SerwerTCPBibliotekaKlas
 
         private void ObsluzKlienta(NetworkStream stream)
         {
-            byte[] bufor = new byte[1024];
-            string wiadomosc;
-            int ilosc;
             string dane;
 
             while (true)
             {
                 try
                 {
-                    wiadomosc = "Podaj login: ";
-                    ilosc = wiadomosc.Length;
+                    WyslijWiadomosc(stream, "Podaj login: ");
 
-                    for (int i = 0; i < ilosc; i++)
-                    {
-                        bufor[i] = (byte)wiadomosc[i];
-                    }
+                    dane = OdbierzWiadomosc(stream);
 
-                    stream.Write(bufor, 0, ilosc);
+                    WyslijWiadomosc(stream, "Podaj haslo: ");
 
-                    ilosc = stream.Read(bufor, 0, 1024);
-                    wiadomosc = encoding.GetString(bufor, 0, ilosc);
-                    dane = wiadomosc;
-                    stream.Read(bufor, 0, 2);
-
-                    wiadomosc = "Podaj haslo: ";
-                    ilosc = wiadomosc.Length;
-
-                    for (int i = 0; i < ilosc; i++)
-                    {
-                        bufor[i] = (byte)wiadomosc[i];
-                    }
-
-                    stream.Write(bufor, 0, ilosc);
-
-                    ilosc = stream.Read(bufor, 0, 1024);
-                    wiadomosc = encoding.GetString(bufor, 0, ilosc);
-                    dane = dane + ";" + wiadomosc + "|";
-                    stream.Read(bufor, 0, 2);
+                    dane = dane + ";" + OdbierzWiadomosc(stream) + "|";
 
                     if (SprawdzDane(dane))
                     {
                         dane = dane.Substring(0, dane.IndexOf(";"));
-                        wiadomosc = "Witaj " + dane + "\r\n";
-                        ilosc = wiadomosc.Length;
+                        Zaloguj(stream, dane);
 
-                        for (int i = 0; i < ilosc; i++)
-                        {
-                            bufor[i] = (byte)wiadomosc[i];
-                        }
-
-                        stream.Write(bufor, 0, ilosc);
-
-                        while (true)
-                        {
-                            wiadomosc = dane + ": ";
-                            ilosc = wiadomosc.Length;
-
-                            for (int i = 0; i < ilosc; i++)
-                            {
-                                bufor[i] = (byte)wiadomosc[i];
-                            }
-
-                            stream.Write(bufor, 0, ilosc);
-
-                            ilosc = stream.Read(bufor, 0, 1024);
-                            wiadomosc = encoding.GetString(bufor, 0, ilosc);
-                            stream.Read(bufor, 0, 2);
-                        }
-
+                        ObsluzKomendy(stream, dane);
                     }
                     else
                     {
-                        wiadomosc = "Nie znaleziono takiego konta\r\n";
-                        ilosc = wiadomosc.Length;
-
-                        for (int i = 0; i < ilosc; i++)
-                        {
-                            bufor[i] = (byte)wiadomosc[i];
-                        }
-
-                        stream.Write(bufor, 0, ilosc);
-
-                        wiadomosc = "Chcesz sie zarejestrowac? (Tak/Nie) ";
-                        ilosc = wiadomosc.Length;
-
-                        for (int i = 0; i < ilosc; i++)
-                        {
-                            bufor[i] = (byte)wiadomosc[i];
-                        }
-
-                        stream.Write(bufor, 0, ilosc);
-
-                        ilosc = stream.Read(bufor, 0, 1024);
-                        wiadomosc = encoding.GetString(bufor, 0, ilosc);
-                        stream.Read(bufor, 0, 2);
-
-                        if (wiadomosc == "Tak" || wiadomosc == "tak")
-                        {
-                            Zarejestruj(dane);
-                            wiadomosc = "Zarejestrowano pomyslnie. Zaloguj sie ponownie\r\n";
-                            ilosc = wiadomosc.Length;
-
-                            for (int i = 0; i < ilosc; i++)
-                            {
-                                bufor[i] = (byte)wiadomosc[i];
-                            }
-
-                            stream.Write(bufor, 0, ilosc);
-                        }
+                        Rejestracja(stream, dane);
                     }
                 }
                 catch (Exception e)
                 {
-                    
+                    Console.WriteLine(e.Message);
+                    break;
                 }
+            }
+        }
+
+        private void WyslijWiadomosc(NetworkStream stream, string wiadomosc)
+        {
+            int ilosc = wiadomosc.Length;
+            byte[] bufor = new byte[ilosc];
+
+            for (int i = 0; i < ilosc; i++)
+            {
+                bufor[i] = (byte)wiadomosc[i];
+            }
+
+            stream.Write(bufor, 0, ilosc);
+        }
+
+        private string OdbierzWiadomosc(NetworkStream stream)
+        {
+            byte[] bufor = new byte[1024];
+
+            int ilosc = stream.Read(bufor, 0, 1024);
+            string wiadomosc = encoding.GetString(bufor, 0, ilosc);
+            stream.Read(bufor, 0, 2);
+
+            return wiadomosc;
+        }
+
+        private void Zaloguj(NetworkStream stream, string dane)
+        {
+            string wiadomosc = "Witaj " + dane + "\r\n";
+            int ilosc = wiadomosc.Length;
+            byte[] bufor = new byte[ilosc];
+
+            for (int i = 0; i < ilosc; i++)
+            {
+                bufor[i] = (byte)wiadomosc[i];
+            }
+
+            stream.Write(bufor, 0, ilosc);
+        }
+
+        private void ObsluzKomendy(NetworkStream stream, string dane)
+        {
+            while (true)
+            {
+                string wiadomosc = dane + ": ";
+                int ilosc = wiadomosc.Length;
+                byte[] bufor = new byte[1024];
+
+                for (int i = 0; i < ilosc; i++)
+                {
+                    bufor[i] = (byte)wiadomosc[i];
+                }
+                stream.Write(bufor, 0, ilosc);
+
+                ilosc = stream.Read(bufor, 0, 1024);
+                wiadomosc = encoding.GetString(bufor, 0, ilosc);
+                stream.Read(bufor, 0, 2);
+
+                wiadomosc = "Echo: " + wiadomosc + "\r\n";
+                ilosc = wiadomosc.Length;
+                for (int i = 0; i < ilosc; i++)
+                {
+                    bufor[i] = (byte)wiadomosc[i];
+                }
+                stream.Write(bufor, 0, ilosc);
+            }
+        }
+
+        private void Rejestracja(NetworkStream stream, string dane)
+        {
+            string wiadomosc = "Nie znaleziono takiego konta\r\n";
+            int ilosc = wiadomosc.Length;
+            byte[] bufor = new byte[1024];
+
+            for (int i = 0; i < ilosc; i++)
+            {
+                bufor[i] = (byte)wiadomosc[i];
+            }
+
+            stream.Write(bufor, 0, ilosc);
+
+            wiadomosc = "Chcesz sie zarejestrowac? (Tak/Nie) ";
+            ilosc = wiadomosc.Length;
+
+            for (int i = 0; i < ilosc; i++)
+            {
+                bufor[i] = (byte)wiadomosc[i];
+            }
+
+            stream.Write(bufor, 0, ilosc);
+
+            ilosc = stream.Read(bufor, 0, 1024);
+            wiadomosc = encoding.GetString(bufor, 0, ilosc);
+            stream.Read(bufor, 0, 2);
+
+            if (wiadomosc == "Tak" || wiadomosc == "tak")
+            {
+                Zarejestruj(dane);
+                wiadomosc = "Zarejestrowano pomyslnie. Zaloguj sie ponownie\r\n";
+                ilosc = wiadomosc.Length;
+
+                for (int i = 0; i < ilosc; i++)
+                {
+                    bufor[i] = (byte)wiadomosc[i];
+                }
+
+                stream.Write(bufor, 0, ilosc);
             }
         }
 
